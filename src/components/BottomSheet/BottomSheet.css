@@ -1,0 +1,36 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 99;
+}
+
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-top: 5px;
+  max-height: 75vh;
+  overflow-y: hidden;
+  z-index: 100;
+  animation: slideUp 0.25s ease-out;
+  transition: transform 0.2s ease-out;
+}
+
+.handle {
+  width: 40px;
+  height: 4px;
+  background: #ccc;
+  border-radius: 2px;
+  margin: 0 auto 10px;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}

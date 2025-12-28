@@ -8,6 +8,10 @@ import { Edit, Delete } from "@mui/icons-material";
 import dayjs from "dayjs";
 import axiosInstance from "../api/axios";
 import LeaseForm from "../components/LeaseForm";
+import "./leasecard.css";
+import BottomSheet from "../components/BottomSheet";
+import LeaseDetails from "../components/LeaseDetails";
+import { useRef } from "react";
 
 export default function Leases() {
   const [leases, setLeases] = useState([]);
@@ -15,7 +19,14 @@ export default function Leases() {
   const [items, setItems] = useState([]);
   const [openForm, setOpenForm] = useState(false);
   const [editingLease, setEditingLease] = useState(null);
+  const [openLease, setOpenLease] = useState(null);
 
+  const contentRef = useRef(null);
+  const isAtTop = useRef(true);
+
+  const onScroll = () => {
+    isAtTop.current = contentRef.current.scrollTop === 0;
+  };
 
   useEffect(() => {
     fetchLeases();
@@ -53,6 +64,18 @@ export default function Leases() {
   //   }
   // };
 
+  const handleEdit = (lease) => {
+    setEditingLease(lease);
+    setOpenForm(true);
+  };
+
+  const handleDelete = async (leaseId) => {
+    //confirm deletion
+    if (!window.confirm("Are you sure you want to delete this lease?")) return;
+    await axiosInstance.delete(`/lease/${leaseId}`);
+    fetchLeases();
+  }
+
   return (
     <Box>
       <Button
@@ -77,53 +100,28 @@ export default function Leases() {
 
       {/* Lease List */}
       {leases.map((lease) => (
-        <Card key={lease.id} sx={{ mb: 2 }}>
-          <CardContent>
-            {/* Lease Header */}
-            <Typography variant="h6">
-              Lease #{lease.id} — {lease.customerName}
-            </Typography>
-            {lease.notes && (
-              <Typography color="text.secondary">Notes: {lease.notes}</Typography>
-            )}
+        <div className="lease-summary-card" onClick={() => setOpenLease(lease)}>
+          <div className="top">
+            <h4>{lease.customerName}</h4>
+            <span>Lease #{lease.id} • {new Date().toLocaleDateString()}</span>
+          </div>
 
-            {/* Items list */}
-            {lease.items.map((it) => (
-              <Box key={it.id} sx={{ pl: 2, mt: 1 }}>
-                <Typography>
-                  • {it.itemName}: {it.startDate} → {it.endDate}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {it.totalDays} days × ₹{it.dailyRate} = ₹{it.totalBill}
-                </Typography>
-              </Box>
-            ))}
+          <div className="items">
+            {lease.items.map(it => it.itemName).slice(0, 2).join(", ")}
+            {lease.items.length > 2 && ` +${lease.items.length - 2} more`}
+          </div>
 
-            {/* Grand Total */}
-            <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: "bold" }}>
-              Grand Total: ₹{lease.grandTotal}
-            </Typography>
+          <div className="total">
+            <span>Grand Total</span>
+            <strong>₹{lease.grandTotal}</strong>
+          </div>
+        </div>
 
-            {/* Actions */}
-            <IconButton
-              onClick={() => {
-                setEditingLease(lease);
-                setOpenForm(true);
-              }}
-            >
-              <Edit />
-            </IconButton>
-            <IconButton
-              onClick={async () => {
-                await axiosInstance.delete(`/lease/${lease.id}`);
-                fetchLeases();
-              }}
-            >
-              <Delete />
-            </IconButton>
-          </CardContent>
-        </Card>
       ))}
+      <BottomSheet open={!!openLease} onClose={() => setOpenLease(null)} isAtTop={isAtTop}>
+        <LeaseDetails lease={openLease} onEdit={handleEdit} onDelete={handleDelete} onBack={() => setOpenLease(null)} 
+        contentRef={contentRef} onScroll={onScroll} />
+      </BottomSheet>
 
 
       {/* Add/Edit Lease Dialog */}
@@ -161,6 +159,7 @@ export default function Leases() {
               }
               setOpenForm(false);
               fetchLeases();
+              setOpenLease(null);
             }}
             onCancel={() => setOpenForm(false)}
           />
