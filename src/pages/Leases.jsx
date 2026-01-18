@@ -9,20 +9,31 @@ import dayjs from "dayjs";
 import axiosInstance from "../api/axios";
 import LeaseForm from "../components/LeaseForm";
 import "./leasecard.css";
-import BottomSheet from "../components/BottomSheet";
-import LeaseDetails from "../components/LeaseDetails";
+import BottomSheet from "../components/BottomSheet/BottomSheet";
+import LeaseDetails from "../components/LeaseDetails/LeaseDetails";
 import { useRef } from "react";
+import { useConfirmOnExit } from "../CustomHooks/useConfirmOnExit";
 
 export default function Leases() {
   const [leases, setLeases] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
-  const [openForm, setOpenForm] = useState(false);
   const [editingLease, setEditingLease] = useState(null);
   const [openLease, setOpenLease] = useState(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
+
 
   const contentRef = useRef(null);
   const isAtTop = useRef(true);
+
+  //using custom hook to prevent accidental exit
+  const { requestClose } = useConfirmOnExit({
+  isDirty,
+  onClose: () => setOpenDialog(false),
+  openConfirmDialog: () => setConfirmClose(true),
+});
 
   const onScroll = () => {
     isAtTop.current = contentRef.current.scrollTop === 0;
@@ -33,6 +44,17 @@ export default function Leases() {
     fetchCustomers();
     fetchItems();
   }, []);
+
+  useEffect(() => {
+  if (!openDialog) return;
+
+  window.history.pushState(null, "");
+  const handler = () => requestClose();
+
+  window.addEventListener("popstate", handler);
+  return () => window.removeEventListener("popstate", handler);
+}, [openDialog]);
+
 
   const fetchLeases = async () => {
     const res = await axiosInstance.get("/lease");
@@ -49,24 +71,9 @@ export default function Leases() {
     setItems(res.data?.content);
   };
 
-  //   if (start && end && itemId) {
-  //     const days = dayjs(end).diff(dayjs(start), "day") + 1;
-  //     const item = items.find(i => i.id === parseInt(itemId));
-  //     if (item) {
-  //       const total = days * item.dailyRate;
-  //       setFormData(prev => ({
-  //         ...prev,
-  //         totalDays: days,
-  //         dailyRateSnapshot: item.dailyRate,
-  //         totalBill: total
-  //       }));
-  //     }
-  //   }
-  // };
-
   const handleEdit = (lease) => {
     setEditingLease(lease);
-    setOpenForm(true);
+    setOpenDialog(true);
   };
 
   const handleDelete = async (leaseId) => {
@@ -76,12 +83,21 @@ export default function Leases() {
     fetchLeases();
   }
 
+  const handleDialogClose = (event, reason) => {
+    if (reason === "backdropClick" || reason === "escapeKeyDown") {
+      requestClose();
+      return;
+    }
+    setOpenDialog(false);
+  };
+
+
   return (
     <Box>
       <Button
         variant="contained"
         onClick={() => {
-          setOpenForm(true);
+          setOpenDialog(true);
           setEditingLease(null);
           // setFormData({
           //   customerId: "",
@@ -119,13 +135,13 @@ export default function Leases() {
 
       ))}
       <BottomSheet open={!!openLease} onClose={() => setOpenLease(null)} isAtTop={isAtTop}>
-        <LeaseDetails lease={openLease} onEdit={handleEdit} onDelete={handleDelete} onBack={() => setOpenLease(null)} 
-        contentRef={contentRef} onScroll={onScroll} />
+        <LeaseDetails lease={openLease} onEdit={handleEdit} onDelete={handleDelete} onBack={() => requestClose()}
+          contentRef={contentRef} onScroll={onScroll} />
       </BottomSheet>
 
 
       {/* Add/Edit Lease Dialog */}
-      <Dialog open={openForm} onClose={() => setOpenForm(false)} PaperProps={{
+      <Dialog open={openDialog} onClose={handleDialogClose} PaperProps={{
         sx: {
           width: "90%",      // or "600px"
           maxWidth: "800px", // optional
@@ -135,8 +151,9 @@ export default function Leases() {
         <DialogContent>
           <LeaseForm
             editingLease={editingLease}
+            setIsDirty={setIsDirty}
             onSave={async (formData) => {
-    
+
               const payload = {
                 customerId: formData.customerId,
                 notes: formData.notes,
@@ -157,18 +174,40 @@ export default function Leases() {
               } else {
                 await axiosInstance.post("/lease", payload);
               }
-              setOpenForm(false);
+              setIsDirty(false);
+              setOpenDialog(false);
               fetchLeases();
               setOpenLease(null);
             }}
-            onCancel={() => setOpenForm(false)}
+            onCancel={() => setOpenDialog(false)}
           />
         </DialogContent>
 
-        {/* <DialogActions>
-          <Button onClick={() => setOpenForm(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
-        </DialogActions> */}
+        <Dialog
+          open={confirmClose}
+          onClose={() => setConfirmClose(false)}
+        >
+          <DialogTitle>Discard changes?</DialogTitle>
+          <DialogContent>
+            You have unsaved changes. Are you sure you want to close?
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmClose(false)}>
+              Cancel
+            </Button>
+            <Button
+              color="error"
+              onClick={() => {
+                setIsDirty(false);
+                setConfirmClose(false);
+                setOpenDialog(false);
+              }}
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
       </Dialog>
     </Box>
   );
