@@ -6,21 +6,35 @@ import {
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 import axiosInstance from "../api/axios";
+import SearchAndActionBar from "../components/SearchAndActionBar";
 
 export default function Items() {
-  const [items, setItems] = useState([]);
+  const [allItems, setAllItems] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredItems, setFilteredItems] = useState([]);
   const [query, setQuery] = useState("");
   const [openForm, setOpenForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({ name: "", pricePerDay: 0, description: "" });
   const [errors, setErrors] = useState({});
-   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => { fetchItems(); }, []);
 
+  useEffect(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    const filtered = allItems.filter(i =>
+      i.name.toLowerCase().includes(keyword) ||
+      i.description?.toLowerCase().includes(keyword) ||
+      i.pricePerDay.toString().includes(keyword)
+    );
+    setFilteredItems(filtered);
+  }, [searchTerm, allItems]);
+
   const fetchItems = async () => {
     const res = await axiosInstance.get("/items");
-    setItems(res.data?.content);
+    setAllItems(res.data?.content);
   };
 
   const validate = () => {
@@ -68,43 +82,26 @@ export default function Items() {
   return (
     <Box>
       {/* Sticky Search + Add button */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1,
-          mb: 2,
-          position: "sticky",
-          top: 0,
-          backgroundColor: "white",
-          zIndex: 1,
-          pt: 1, pb: 1
+      <SearchAndActionBar
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        pageType="items"
+        buttonOnClick={() => {
+          setOpenForm(true);
+          setEditingItem(null);
+          setFormData({ name: "", pricePerDay: 0, description: "" });
+          setErrors({});
         }}
-      >
-        <TextField
-          label="Search items"
-          variant="outlined"
-          size="small"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          fullWidth
-        />
-        <Button
-          variant="contained"
-          onClick={() => {
-            setOpenForm(true);
-            setEditingItem(null);
-            setFormData({ name: "", pricePerDay: 0, description: "" });
-            setErrors({});
-          }}
-        >
-          Add
-        </Button>
-      </Box>
+        label="Search items"
+        btnLabel="Add"
+      />
 
       {/* Items list */}
-      {items?.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()))
-        .map((item) => (
-          <Card key={item.id} sx={{ mb: 2 }}>
+      <div className="item-card-container" style={{ display: 'flex',  
+          justifyContent: 'space-evenly' ,margin: '0.5rem', width: '90vw',
+          maxHeight: '62vh', overflowY: 'auto', flexWrap: 'wrap', gap: '1rem' }}>
+        {filteredItems.length > 0 ? filteredItems.map((item) => (
+          <Card key={item.id} sx={{ mb: 2, width: '10rem' }}>
             <CardContent>
               <Typography variant="h6">{item.name}</Typography>
               <Typography>Rate: ₹{item.pricePerDay}</Typography>
@@ -119,12 +116,15 @@ export default function Items() {
                 <Edit />
               </IconButton>
 
-              <IconButton onClick={() => { setDeleteConfirm(item)}}>
+              <IconButton onClick={() => { setDeleteConfirm(item) }}>
                 <Delete />
               </IconButton>
             </CardContent>
           </Card>
-        ))}
+        )) : (
+          <Typography variant="body2" color="textSecondary">No items found.</Typography>
+        )}
+      </div>
 
       {/* Add/Edit Dialog */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)}>

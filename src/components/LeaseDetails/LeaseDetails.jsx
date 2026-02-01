@@ -108,8 +108,8 @@ function LeaseDetails({ lease, onEdit, onDelete, onBack, contentRef, onScroll })
         <div className="meta">
           <span><strong>Lease No:</strong> {lease.id}</span>
           <div>
-            <span><strong>Created:</strong> {new Date().toLocaleDateString()}</span>
-            <span><strong>Updated:</strong> {new Date().toLocaleDateString()}</span>
+            <span><strong>Created:</strong> {new Date(lease.createdAt).toLocaleDateString()}</span>
+            <span><strong>Updated:</strong> {new Date(lease.updatedAt).toLocaleDateString()}</span>
           </div>
           <div></div>
           <div></div>

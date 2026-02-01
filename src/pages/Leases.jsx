@@ -13,9 +13,12 @@ import BottomSheet from "../components/BottomSheet/BottomSheet";
 import LeaseDetails from "../components/LeaseDetails/LeaseDetails";
 import { useRef } from "react";
 import { useConfirmOnExit } from "../CustomHooks/useConfirmOnExit";
+import SearchAndActionBar from "../components/SearchAndActionBar";
 
 export default function Leases() {
-  const [leases, setLeases] = useState([]);
+  const [Allleases, setAllLeases] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredLeases, setFilteredLeases] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
   const [editingLease, setEditingLease] = useState(null);
@@ -30,10 +33,10 @@ export default function Leases() {
 
   //using custom hook to prevent accidental exit
   const { requestClose } = useConfirmOnExit({
-  isDirty,
-  onClose: () => setOpenDialog(false),
-  openConfirmDialog: () => setConfirmClose(true),
-});
+    isDirty,
+    onClose: () => setOpenDialog(false),
+    openConfirmDialog: () => setConfirmClose(true),
+  });
 
   const onScroll = () => {
     isAtTop.current = contentRef.current.scrollTop === 0;
@@ -46,19 +49,34 @@ export default function Leases() {
   }, []);
 
   useEffect(() => {
-  if (!openDialog) return;
+    if (!openDialog) return;
 
-  window.history.pushState(null, "");
-  const handler = () => requestClose();
+    window.history.pushState(null, "");
+    const handler = () => requestClose();
 
-  window.addEventListener("popstate", handler);
-  return () => window.removeEventListener("popstate", handler);
-}, [openDialog]);
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [openDialog]);
+
+  // Filter leases based on search term
+  useEffect(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    const filtered = Allleases.filter(l =>
+      l.customerName.toLowerCase().includes(keyword) ||
+      l.items.some(item => item.itemName.toLowerCase().includes(keyword)) ||
+      l.grandTotal.toString().includes(keyword) ||
+      l.notes?.toLowerCase().includes(keyword)
+    );
+
+    setFilteredLeases(filtered);
+  }, [searchTerm, Allleases]);
 
 
   const fetchLeases = async () => {
     const res = await axiosInstance.get("/lease");
-    setLeases(res.data);
+    setAllLeases(res.data);
+    setFilteredLeases(res.data);
   };
 
   const fetchCustomers = async () => {
@@ -94,46 +112,44 @@ export default function Leases() {
 
   return (
     <Box>
-      <Button
-        variant="contained"
-        onClick={() => {
+      <SearchAndActionBar
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        pageType="leases"
+        buttonOnClick={() => {
           setOpenDialog(true);
           setEditingLease(null);
-          // setFormData({
-          //   customerId: "",
-          //   itemId: "",
-          //   startDate: null,
-          //   endDate: null,
-          //   dailyRateSnapshot: "",
-          //   totalDays: 0,
-          //   totalBill: 0
-          // });
-          // setErrors({});
         }}
-      >
-        Add Lease
-      </Button>
+        label="Search leases"
+        btnLabel="Add"
+      />
 
       {/* Lease List */}
-      {leases.map((lease) => (
-        <div className="lease-summary-card" onClick={() => setOpenLease(lease)}>
-          <div className="top">
-            <h4>{lease.customerName}</h4>
-            <span>Lease #{lease.id} • {new Date().toLocaleDateString()}</span>
+      <div className="lease-card-container" style={{ display: 'flex',  
+          justifyContent: 'space-evenly' ,margin: '1rem', width: '90vw',
+          maxHeight: '60vh', overflowY: 'auto', flexWrap: 'wrap', gap: '1rem' }}>
+        {filteredLeases.length > 0 ? filteredLeases.map((lease) => (
+          <div className="lease-summary-card" onClick={() => setOpenLease(lease)}>
+            <div className="top">
+              <h4>{lease.customerName}</h4>
+              <span>Lease #{lease.id} • {new Date(lease.createdAt).toLocaleDateString()}</span>
+            </div>
+
+            <div className="items">
+              {lease.items.map(it => it.itemName).slice(0, 2).join(", ")}
+              {lease.items.length > 2 && ` +${lease.items.length - 2} more`}
+            </div>
+
+            <div className="total">
+              <span>Grand Total</span>
+              <strong>₹{lease.grandTotal}</strong>
+            </div>
           </div>
 
-          <div className="items">
-            {lease.items.map(it => it.itemName).slice(0, 2).join(", ")}
-            {lease.items.length > 2 && ` +${lease.items.length - 2} more`}
-          </div>
-
-          <div className="total">
-            <span>Grand Total</span>
-            <strong>₹{lease.grandTotal}</strong>
-          </div>
-        </div>
-
-      ))}
+        )) : (<div>
+          <Typography variant="body2" color="textSecondary">No leases found.</Typography>
+        </div>)}
+      </div>
       <BottomSheet open={!!openLease} onClose={() => setOpenLease(null)} isAtTop={isAtTop}>
         <LeaseDetails lease={openLease} onEdit={handleEdit} onDelete={handleDelete} onBack={() => requestClose()}
           contentRef={contentRef} onScroll={onScroll} />
