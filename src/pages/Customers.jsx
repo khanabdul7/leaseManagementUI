@@ -14,9 +14,12 @@ import {
   Snackbar,
 } from "@mui/material";
 import axiosInstance from "../api/axios";
+import SearchAndActionBar from "../components/SearchAndActionBar";
 
 export default function Customers() {
-  const [customers, setCustomers] = useState([]);
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [query, setQuery] = useState("");
   const [openForm, setOpenForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
@@ -30,10 +33,24 @@ export default function Customers() {
     fetchCustomers();
   }, [query]);
 
+  // Filter customers based on search term
+  useEffect(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    const filtered = allCustomers.filter(c =>
+      c.name.toLowerCase().includes(keyword) ||
+      c.phone.includes(keyword) ||
+      c.address?.toLowerCase().includes(keyword)
+    );
+
+    setFilteredCustomers(filtered);
+  }, [searchTerm, allCustomers]);
+
   const fetchCustomers = async () => {
     try {
       const res = await axiosInstance.get(`/customers?query=${query}`);
-      setCustomers(res.data.content || res.data);
+      setAllCustomers(res.data.content || res.data);
+      setFilteredCustomers(res.data);
     } catch (err) {
       console.error(err);
     }
@@ -94,56 +111,48 @@ export default function Customers() {
   return (
     <Box>
       {/* Toolbar: Search + Add button */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1,
-          mb: 2,
-          position: "sticky",
-          top: 0,
-          backgroundColor: "white",
-          zIndex: 1,
-          pt: 1, pb: 1
-        }}
-      >
-        <TextField
-          label="Search by name/phone"
-          variant="outlined"
-          size="small"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          fullWidth
-        />
-        <Button variant="contained" onClick={() => {
+      <SearchAndActionBar
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        pageType="customers"
+        buttonOnClick={() => {
           setOpenForm(true);
           setEditingCustomer(null);
           setFormData({ name: "", phone: "", address: "" });
-        }}>
-          Add
-        </Button>
-      </Box>
+        }}
+        label="Search by name/phone"
+        btnLabel="Add"
+      />
 
       {/* Customers List */}
-      {customers.map((c) => (
-        <Card key={c.id} sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography variant="h6">{c.name}</Typography>
-            <Typography variant="body2">📞 {c.phone}</Typography>
-            <Typography variant="body2">{c.address}</Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small"
-              onClick={() => {
-                setEditingCustomer(c);
-                setFormData({ name: c.name, phone: c.phone, address: c.address });
-                setOpenForm(true);
-              }}>
-              Edit</Button>
-            <Button size="small" color="error"
-              onClick={() => setDeleteConfirm(c)}>Delete</Button>
-          </CardActions>
-        </Card>
-      ))}
+      <div className="customer-card-container" style={{ display: 'flex',  
+          justifyContent: 'space-evenly' ,margin: '1rem', width: '90vw',
+          maxHeight: '60vh', overflowY: 'auto', flexWrap: 'wrap', gap: '1rem' }}>
+        {filteredCustomers.length > 0 ? filteredCustomers.map((c) => (
+          <Card key={c.id} sx={{ mb: 2, width: '10rem' }}>
+            <CardContent>
+              <Typography variant="h6">{c.name}</Typography>
+              <Typography variant="body2">📞 {c.phone}</Typography>
+              <Typography variant="body2">{c.address}</Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small"
+                onClick={() => {
+                  setEditingCustomer(c);
+                  setFormData({ name: c.name, phone: c.phone, address: c.address });
+                  setOpenForm(true);
+                }}>
+                Edit</Button>
+              <Button size="small" color="error"
+                onClick={() => setDeleteConfirm(c)}>Delete</Button>
+            </CardActions>
+          </Card>
+        )) : (
+          <div>
+            <Typography variant="body2" color="textSecondary">No customers found.</Typography>
+          </div>
+        )}
+      </div>
 
       {/* Add/Edit Form Dialog */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)} fullWidth>
