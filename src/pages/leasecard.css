@@ -1,0 +1,30 @@
+.lease-summary-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  width: 12rem;
+}
+
+.lease-summary-card h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.lease-summary-card span {
+  font-size: 12px;
+  color: #777;
+}
+
+.items {
+  margin: 6px 0;
+  font-size: 14px;
+  color: #444;
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}

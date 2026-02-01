@@ -1,0 +1,97 @@
+.lease-details {
+  height: 100vh; /* important for bottom sheet */
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.drag-zone {
+  touch-action: pan-y;
+}
+
+.sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.items-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 12.5rem;
+}
+
+
+/* Header */
+.details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.details-header h3 {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+
+.actions button {
+  background: none;
+  border: none;
+  font-size: 18px;
+}
+
+/* Customer */
+.customer {
+  margin: 12px 0 4px;
+}
+
+/* Meta */
+.meta {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+}
+.meta div {
+  display: flex;
+  margin-bottom: 4px;
+  justify-content: space-between;
+}
+
+/* Items */
+.item {
+  padding: 12px 0;
+  border-bottom: 1px dashed #eee;
+}
+
+.item h4 {
+  margin: 0;
+}
+
+.item span {
+  font-size: 13px;
+  color: #777;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+/* Grand Total (Sticky) */
+.grand-total {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: bold;
+  border-top: 1px solid #eee;
+}
+

@@ -8,20 +8,53 @@ import { Edit, Delete } from "@mui/icons-material";
 import dayjs from "dayjs";
 import axiosInstance from "../api/axios";
 import LeaseForm from "../components/LeaseForm";
+import "./leasecard.css";
+import BottomSheet from "../components/BottomSheet/BottomSheet";
+import LeaseDetails from "../components/LeaseDetails/LeaseDetails";
+import { useRef } from "react";
+import { useConfirmOnExit } from "../CustomHooks/useConfirmOnExit";
 
 export default function Leases() {
   const [leases, setLeases] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
-  const [openForm, setOpenForm] = useState(false);
   const [editingLease, setEditingLease] = useState(null);
+  const [openLease, setOpenLease] = useState(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
 
+
+  const contentRef = useRef(null);
+  const isAtTop = useRef(true);
+
+  //using custom hook to prevent accidental exit
+  const { requestClose } = useConfirmOnExit({
+  isDirty,
+  onClose: () => setOpenDialog(false),
+  openConfirmDialog: () => setConfirmClose(true),
+});
+
+  const onScroll = () => {
+    isAtTop.current = contentRef.current.scrollTop === 0;
+  };
 
   useEffect(() => {
     fetchLeases();
     fetchCustomers();
     fetchItems();
   }, []);
+
+  useEffect(() => {
+  if (!openDialog) return;
+
+  window.history.pushState(null, "");
+  const handler = () => requestClose();
+
+  window.addEventListener("popstate", handler);
+  return () => window.removeEventListener("popstate", handler);
+}, [openDialog]);
+
 
   const fetchLeases = async () => {
     const res = await axiosInstance.get("/lease");
@@ -38,27 +71,33 @@ export default function Leases() {
     setItems(res.data?.content);
   };
 
-  //   if (start && end && itemId) {
-  //     const days = dayjs(end).diff(dayjs(start), "day") + 1;
-  //     const item = items.find(i => i.id === parseInt(itemId));
-  //     if (item) {
-  //       const total = days * item.dailyRate;
-  //       setFormData(prev => ({
-  //         ...prev,
-  //         totalDays: days,
-  //         dailyRateSnapshot: item.dailyRate,
-  //         totalBill: total
-  //       }));
-  //     }
-  //   }
-  // };
+  const handleEdit = (lease) => {
+    setEditingLease(lease);
+    setOpenDialog(true);
+  };
+
+  const handleDelete = async (leaseId) => {
+    //confirm deletion
+    if (!window.confirm("Are you sure you want to delete this lease?")) return;
+    await axiosInstance.delete(`/lease/${leaseId}`);
+    fetchLeases();
+  }
+
+  const handleDialogClose = (event, reason) => {
+    if (reason === "backdropClick" || reason === "escapeKeyDown") {
+      requestClose();
+      return;
+    }
+    setOpenDialog(false);
+  };
+
 
   return (
     <Box>
       <Button
         variant="contained"
         onClick={() => {
-          setOpenForm(true);
+          setOpenDialog(true);
           setEditingLease(null);
           // setFormData({
           //   customerId: "",
@@ -77,57 +116,32 @@ export default function Leases() {
 
       {/* Lease List */}
       {leases.map((lease) => (
-        <Card key={lease.id} sx={{ mb: 2 }}>
-          <CardContent>
-            {/* Lease Header */}
-            <Typography variant="h6">
-              Lease #{lease.id} — {lease.customerName}
-            </Typography>
-            {lease.notes && (
-              <Typography color="text.secondary">Notes: {lease.notes}</Typography>
-            )}
+        <div className="lease-summary-card" onClick={() => setOpenLease(lease)}>
+          <div className="top">
+            <h4>{lease.customerName}</h4>
+            <span>Lease #{lease.id} • {new Date().toLocaleDateString()}</span>
+          </div>
 
-            {/* Items list */}
-            {lease.items.map((it) => (
-              <Box key={it.id} sx={{ pl: 2, mt: 1 }}>
-                <Typography>
-                  • {it.itemName}: {it.startDate} → {it.endDate}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {it.totalDays} days × ₹{it.dailyRate} = ₹{it.totalBill}
-                </Typography>
-              </Box>
-            ))}
+          <div className="items">
+            {lease.items.map(it => it.itemName).slice(0, 2).join(", ")}
+            {lease.items.length > 2 && ` +${lease.items.length - 2} more`}
+          </div>
 
-            {/* Grand Total */}
-            <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: "bold" }}>
-              Grand Total: ₹{lease.grandTotal}
-            </Typography>
+          <div className="total">
+            <span>Grand Total</span>
+            <strong>₹{lease.grandTotal}</strong>
+          </div>
+        </div>
 
-            {/* Actions */}
-            <IconButton
-              onClick={() => {
-                setEditingLease(lease);
-                setOpenForm(true);
-              }}
-            >
-              <Edit />
-            </IconButton>
-            <IconButton
-              onClick={async () => {
-                await axiosInstance.delete(`/lease/${lease.id}`);
-                fetchLeases();
-              }}
-            >
-              <Delete />
-            </IconButton>
-          </CardContent>
-        </Card>
       ))}
+      <BottomSheet open={!!openLease} onClose={() => setOpenLease(null)} isAtTop={isAtTop}>
+        <LeaseDetails lease={openLease} onEdit={handleEdit} onDelete={handleDelete} onBack={() => requestClose()}
+          contentRef={contentRef} onScroll={onScroll} />
+      </BottomSheet>
 
 
       {/* Add/Edit Lease Dialog */}
-      <Dialog open={openForm} onClose={() => setOpenForm(false)} PaperProps={{
+      <Dialog open={openDialog} onClose={handleDialogClose} PaperProps={{
         sx: {
           width: "90%",      // or "600px"
           maxWidth: "800px", // optional
@@ -137,8 +151,9 @@ export default function Leases() {
         <DialogContent>
           <LeaseForm
             editingLease={editingLease}
+            setIsDirty={setIsDirty}
             onSave={async (formData) => {
-    
+
               const payload = {
                 customerId: formData.customerId,
                 notes: formData.notes,
@@ -159,17 +174,40 @@ export default function Leases() {
               } else {
                 await axiosInstance.post("/lease", payload);
               }
-              setOpenForm(false);
+              setIsDirty(false);
+              setOpenDialog(false);
               fetchLeases();
+              setOpenLease(null);
             }}
-            onCancel={() => setOpenForm(false)}
+            onCancel={() => setOpenDialog(false)}
           />
         </DialogContent>
 
-        {/* <DialogActions>
-          <Button onClick={() => setOpenForm(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
-        </DialogActions> */}
+        <Dialog
+          open={confirmClose}
+          onClose={() => setConfirmClose(false)}
+        >
+          <DialogTitle>Discard changes?</DialogTitle>
+          <DialogContent>
+            You have unsaved changes. Are you sure you want to close?
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmClose(false)}>
+              Cancel
+            </Button>
+            <Button
+              color="error"
+              onClick={() => {
+                setIsDirty(false);
+                setConfirmClose(false);
+                setOpenDialog(false);
+              }}
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
       </Dialog>
     </Box>
   );

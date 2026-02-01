@@ -10,7 +10,7 @@ import dayjs from "dayjs";
 import axiosInstance from "../api/axios";
 import { useMediaQuery } from "@mui/material";
 
-export default function LeaseForm({ editingLease, onSave, onCancel }) {
+export default function LeaseForm({ editingLease, onSave, onCancel, setIsDirty }) {
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
   const [formErrors, setFormErrors] = useState({});
@@ -50,7 +50,7 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
           endDate: it.endDate ? dayjs(it.endDate) : null,
           quantity: it.quantity || 1,
           pricePerDay: it.dailyRate,
-          totalDays: it.totalDays,    
+          totalDays: it.totalDays,
           totalBill: it.totalBill,
           // keep lease-item id if backend uses it
           id: it.id
@@ -72,6 +72,7 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
   };
 
   const updateItem = (index, field, value) => {
+    setIsDirty(true);
     const newItems = [...formData.items];
     newItems[index][field] = value;
 
@@ -83,7 +84,7 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
       }
     }
     //allowing max price to be 1000
-    if(field === "pricePerDay"){
+    if (field === "pricePerDay") {
       value > 1000 ? newItems[index].pricePerDay = 1000 : newItems[index].pricePerDay = value
     }
 
@@ -106,6 +107,7 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
   };
 
   const addItem = () => {
+    setIsDirty(true);
     setFormData(prev => ({
       ...prev,
       items: [
@@ -116,13 +118,14 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
   };
 
   const removeItem = (index) => {
+    setIsDirty(true);
     const newItems = formData.items.filter((_, i) => i !== index);
     const grandTotal = newItems.reduce((sum, it) => sum + (it.totalBill || 0), 0);
     setFormData(prev => ({ ...prev, items: newItems, grandTotal }));
   };
 
   const handleSave = () => {
-    if (validate()){
+    if (validate()) {
       onSave(formData);
     }
   };
@@ -143,7 +146,7 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
         if (it.startDate && it.endDate && dayjs(it.endDate).isBefore(dayjs(it.startDate))) {
           itemErrors.endDate = "End date must be after start date";
         }
-        if(!it.pricePerDay || isNaN(it.pricePerDay) || it.pricePerDay < 0) itemErrors.pricePerDay = "Price/Day must be non-negative";
+        if (!it.pricePerDay || isNaN(it.pricePerDay) || it.pricePerDay < 0) itemErrors.pricePerDay = "Price/Day must be non-negative";
         if (Object.keys(itemErrors).length > 0) {
           newErrors.items[idx] = itemErrors;
         }
@@ -172,7 +175,10 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
         error={!!formErrors.customerId}
         helperText={formErrors.customerId}
         value={formData.customerId}
-        onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+        onChange={(e) => {
+          setFormData({ ...formData, customerId: e.target.value });
+          setIsDirty(true);
+        }}
       >
         {customers.map(c => (
           <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
@@ -187,7 +193,10 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
         rows={2}
         margin="dense"
         value={formData.notes}
-        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+        onChange={(e) => {
+          setFormData({ ...formData, notes: e.target.value });
+          setIsDirty(true);
+        }}
       />
 
       {/* Items Section */}
@@ -203,10 +212,29 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
           border: "1px solid #ddd",
           borderRadius: 2,
         }}>
+          <Box
+            sx={{
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              bgcolor: "#93989c",
+              color: "#fff",
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0
+            }}
+          >
+            {idx + 1}
+          </Box>
+
           {/* Item dropdown */}
           <TextField
             select
-            label="Item"
+            label={`Item ${idx + 1}`}
             error={!!(formErrors.items && formErrors.items[idx] && formErrors.items[idx].itemId)}
             helperText={formErrors.items && formErrors.items[idx] && formErrors.items[idx].itemId}
             value={it.itemId}
@@ -285,7 +313,6 @@ export default function LeaseForm({ editingLease, onSave, onCancel }) {
             error={!!(formErrors.items && formErrors.items[idx] && formErrors.items[idx].totalBill)}
             helperText={formErrors.items && formErrors.items[idx] && formErrors.items[idx].totalBill}
           />
-
           {/* Remove button */}
           {formData.items.length > 1 && (
             <IconButton color="error" onClick={() => removeItem(idx)}
